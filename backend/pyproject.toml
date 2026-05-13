@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "aegis-backend"
+version = "0.1.0"
+description = "Aegis backend service"
+authors = ["Aegis Team <dev@aegis.local>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.101"
+uvicorn = {extras=["standard"],version="^0.22"}
+sqlalchemy = "^2.0"
+asyncpg = "^0.29.0"
+alembic = "^1.11"
+pydantic = "^2.6"
+neo4j = "^5.7"
+qdrant-client = "^1.9"
+redis = "^5.0"
+httpx = "^0.25"
+python-dotenv = "^1.0"
+PyJWT = "^2.8"
+tree-sitter = "^0.23.0"
+tree-sitter-python = "^0.23.2"
+tree-sitter-javascript = "^0.23.0"
+tree-sitter-typescript = "^0.23.0"
+tree-sitter-go = "^0.23.0"
+google-generativeai = "^0.4.0"
+langgraph = "^0.0.30"
+langchain-google-genai = "^1.0.0"
+websockets = "^12.0"
+python-multipart = "^0.0.9"
+pydantic-settings = "^2.2.1"
+structlog = "^24.1.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
