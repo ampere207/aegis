@@ -126,3 +126,49 @@ class Neo4jService:
         """
         return await cls.execute_query(query, {"repo_id": repo_id})
 
+    @classmethod
+    async def get_repository_graph(cls, repo_id: int) -> dict:
+        """Fetch all nodes and relationships for a repository."""
+        query = """
+        MATCH (r:Repository {id: $repo_id})-[:CONTAINS]->(e:SecurityEntity)
+        OPTIONAL MATCH (e)-[rel]->(other:SecurityEntity)
+        WHERE (r)-[:CONTAINS]->(other)
+        RETURN e as node, rel as relationship, other as target
+        """
+        records = await cls.execute_query(query, {"repo_id": repo_id})
+        
+        nodes = {}
+        edges = []
+        
+        for record in records:
+            # Process main node
+            n = record["node"]
+            if n and n.get("id") not in nodes:
+                nodes[n["id"]] = {
+                    "id": n["id"],
+                    "label": n.get("name", "Unknown"),
+                    "type": n.get("type", "entity"),
+                    "file_path": n.get("file_path", "")
+                }
+            
+            # Process target node if exists
+            t = record["target"]
+            if t and t.get("id") not in nodes:
+                nodes[t["id"]] = {
+                    "id": t["id"],
+                    "label": t.get("name", "Unknown"),
+                    "type": t.get("type", "entity"),
+                    "file_path": t.get("file_path", "")
+                }
+            
+            # Process relationship
+            r = record["relationship"]
+            if r:
+                edges.append({
+                    "id": f"e_{n['id']}_{t['id']}",
+                    "source": n["id"],
+                    "target": t["id"],
+                    "label": "CALLS" # Simplified for Phase 1
+                })
+        
+        return {"nodes": list(nodes.values()), "edges": edges}

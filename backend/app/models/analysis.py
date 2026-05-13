@@ -15,6 +15,7 @@ class Analysis(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     pull_request_id = Column(Integer, ForeignKey("pull_requests.id"), nullable=True)
     parent_id = Column(Integer, ForeignKey("analyses.id"), nullable=True) # For history tracking
     

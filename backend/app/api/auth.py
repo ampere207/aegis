@@ -78,3 +78,32 @@ async def callback(code: str | None = None, response: Response = None):
     response.set_cookie("aegis_session", token, httponly=True, secure=False, samesite="lax")
     return response
 
+@router.get("/me")
+async def get_me(request: Request):
+    token = request.cookies.get("aegis_session")
+    if not token:
+        return {"authenticated": False}
+    
+    from ..utils.security import decode_session_token
+    data = decode_session_token(token)
+    if not data:
+        return {"authenticated": False}
+    
+    user_id = data.get("user_id")
+    async for session in db.get_db():
+        from sqlalchemy import select
+        stmt = select(User).where(User.id == user_id)
+        res = await session.execute(stmt)
+        user = res.scalar()
+        if user:
+            return {
+                "authenticated": True,
+                "user": {
+                    "id": user.id,
+                    "login": user.login,
+                    "name": user.name,
+                    "email": user.email
+                }
+            }
+    
+    return {"authenticated": False}

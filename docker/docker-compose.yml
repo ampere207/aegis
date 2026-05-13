@@ -39,6 +39,8 @@ services:
       - qdrant
     ports:
       - '8000:8000'
+    volumes:
+      - repos_data:/app/storage/repos
 
   frontend:
     build:
@@ -49,4 +51,4 @@ services:
 
 volumes:
   pgdata:
-    driver: local
+  repos_data:

@@ -12,6 +12,7 @@ from ..models.github_connection import GitHubConnection
 from ..services.repository_service import RepositoryService
 from ..services.ingestion_service import IngestionService
 from ..ingest.tasks import schedule_ingest
+from ..core.config import settings
 from fastapi import BackgroundTasks
 import logging
 
@@ -49,7 +50,7 @@ async def list_available_repos(request: Request, q: str | None = None):
         break
 
     client = GitHubClient()
-    repos = await client.list_user_repos(q, access_token=token)
+    repos = await client.list_user_repos(access_token=token, q=q)
     return repos
 
 
@@ -62,7 +63,7 @@ async def list_imported_repos(request: Request):
 
     async for session in db.get_db():
         from sqlalchemy import select
-        stmt = select(Repository).limit(100)
+        stmt = select(Repository).where(Repository.user_id == user.id).limit(100)
         res = await session.execute(stmt)
         repos = res.scalars().all()
         return repos
@@ -76,10 +77,12 @@ async def import_repo(payload: repo_schema.RepositoryIn, request: Request, backg
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        repo_obj = await RepositoryService.create_repository(payload.dict())
+        repo_data = payload.model_dump(mode='json')
+        repo_data["user_id"] = user.id
+        repo_obj = await RepositoryService.create_repository(repo_data)
         logger.info(f"Repository created: {repo_obj.id} ({payload.full_name})")
 
-        schedule_ingest(background, payload.full_name, payload.html_url)
+        schedule_ingest(background, payload.full_name, str(payload.html_url))
         logger.info(f"Ingestion scheduled for {payload.full_name}")
 
         analysis_id = await IngestionService.schedule_ingestion(repo_obj.id, user.id)
@@ -177,7 +180,7 @@ async def trigger_analysis(repo_id: int, request: Request, background: Backgroun
         
         # In a real system, repo_path would be the path to the cloned repository
         # For this implementation, we'll assume a path or use a placeholder
-        repo_path = f"/tmp/repos/{repo.full_name}" 
+        repo_path = f"{settings.REPOS_STORAGE_PATH}/{repo.full_name}"
         
         from ..intelligence.pipeline import AnalysisPipeline
         from .ws import manager as ws_manager
@@ -265,3 +268,13 @@ async def get_attack_paths(repo_id: int):
     from ..services.neo4j_service import Neo4jService
     paths = await Neo4jService.get_attack_paths(repo_id)
     return {"repo_id": repo_id, "paths": paths}
+@router.get("/{repo_id}/graph")
+async def get_repo_graph(repo_id: int, request: Request):
+    """Get the dynamic semantic graph for a repository."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    from ..services.neo4j_service import Neo4jService
+    graph_data = await Neo4jService.get_repository_graph(repo_id)
+    return graph_data

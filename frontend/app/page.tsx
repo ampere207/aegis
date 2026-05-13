@@ -1,10 +1,14 @@
+"use client"
 import React from 'react'
 import Link from 'next/link'
 import { Shield, Github as GithubIcon, ChevronRight, Activity, GitBranch, Terminal } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
 
 export default function Home() {
+  const { isAuthenticated } = useAuthStore()
+
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 max-w-screen-2xl items-center mx-auto px-4">
@@ -14,13 +18,22 @@ export default function Home() {
           </div>
           <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
             <nav className="flex items-center">
-              <a
-                href="/api/auth/login"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
-              >
-                <GithubIcon className="mr-2 h-4 w-4" />
-                Sign In with GitHub
-              </a>
+              {isAuthenticated ? (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <a
+                  href="/api/auth/login"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
+                >
+                  <GithubIcon className="mr-2 h-4 w-4" />
+                  Sign In with GitHub
+                </a>
+              )}
             </nav>
           </div>
         </div>
@@ -39,12 +52,12 @@ export default function Home() {
                 Aegis is an AI-native security intelligence platform that understands your distributed architecture. We detect complex privilege escalations, exploit chains, and trust boundary violations—not just regex matches.
               </p>
               <div className="space-x-4">
-                <a
-                  href="/api/auth/login"
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-8"
+                <Link
+                  href={isAuthenticated ? "/dashboard" : "/api/auth/login"}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-8"
                 >
-                  Get Started <ChevronRight className="ml-2 h-4 w-4" />
-                </a>
+                  {isAuthenticated ? "Go to Dashboard" : "Get Started"} <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
               </div>
             </div>
 

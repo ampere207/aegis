@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str | None = None
     QDRANT_URL: str | None = None
     GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-1.5-pro" # Default, can be overridden by env
     GITHUB_CLIENT_ID: str | None = None
     GITHUB_CLIENT_SECRET: str | None = None
     FRONTEND_ORIGIN: AnyHttpUrl = "http://localhost:3000"
     BACKEND_ORIGIN: str = "http://localhost:8000"
+    REPOS_STORAGE_PATH: str = "/app/storage/repos"
 
     class Config:
         env_file = ".env"

@@ -10,6 +10,7 @@ class RepositoryService:
                 owner=repo_data["owner"],
                 name=repo_data["name"],
                 full_name=repo_data["full_name"],
+                user_id=repo_data.get("user_id"),
                 description=repo_data.get("description"),
                 html_url=repo_data["html_url"],
                 visibility=repo_data.get("visibility"),

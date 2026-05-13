@@ -54,19 +54,59 @@ class PRAnalyzer:
         if not settings.GEMINI_API_KEY:
             return [{"title": "AI Disabled", "description": "Set GEMINI_API_KEY for PR reviews"}]
 
-        # For Phase 3, we'll implement a focused prompt
-        # In a real implementation, we would pull the graph deltas here
-        # For now, we'll pass the diff summary to Gemini
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_core.messages import HumanMessage, SystemMessage
+        import json
+
+        llm = ChatGoogleGenerativeAI(
+            model=settings.GEMINI_MODEL,
+            google_api_key=settings.GEMINI_API_KEY,
+            temperature=0.1
+        )
+
+        system_prompt = """
+        You are a Senior Security Architect. Analyze the provided Git diff for architectural security risks.
+        Focus on:
+        - Changes to auth logic, middleware, or decorators.
+        - Modifications to trust boundaries or external API calls.
+        - New dependencies or sensitive data handling.
         
-        # Placeholder for AI logic (simulating the call for now)
-        return [
-            {
-                "title": "Architectural Trust Boundary Change",
-                "description": f"The changes in {impacted_paths[0] if impacted_paths else 'this PR'} appear to modify how services authenticate. Ensure downstream validation is still enforced.",
+        Return ONLY a JSON array of findings. Each finding must have:
+        { "title": "...", "description": "...", "severity": "high/medium/low", "type": "..." }
+        """
+
+        user_prompt = f"""
+        Impacted Architectural Files: {impacted_paths}
+        
+        Diff Content:
+        {diff_content[:10000]} # Truncate if too large
+        
+        Perform a deep security review.
+        """
+
+        try:
+            response = await llm.ainvoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
+            ])
+            
+            # Extract JSON from response
+            text = response.content
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            
+            findings = json.loads(text)
+            return findings
+        except Exception as e:
+            logger.error(f"AI PR Review failed: {e}")
+            return [{
+                "title": "AI Analysis Failed",
+                "description": f"Could not perform deep reasoning: {str(e)}",
                 "severity": "medium",
-                "type": "trust_boundary"
-            }
-        ]
+                "type": "error"
+            }]
 
     def _generate_summary(self, impacted_paths: List[str], findings: List[Dict[str, Any]]) -> str:
         if not impacted_paths:

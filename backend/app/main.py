@@ -19,7 +19,7 @@ app = FastAPI(title="Aegis API", version="0.1.0")
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0"],
+    allowed_hosts=["*"],
 )
 
 app.add_middleware(
@@ -44,13 +44,29 @@ async def health():
 
 @app.on_event("startup")
 async def on_startup():
-    # Ensure database tables exist for Phase 1
-    async with _db.engine.begin() as conn:
-        await conn.run_sync(_base.Base.metadata.create_all)
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
     
-    # Initialize Neo4j and Qdrant services
-    await Neo4jService.initialize()
-    await QdrantService.initialize()
+    retries = 5
+    while retries > 0:
+        try:
+            # Ensure database tables exist for Phase 1
+            async with _db.engine.begin() as conn:
+                await conn.run_sync(_base.Base.metadata.create_all)
+            
+            # Initialize Neo4j and Qdrant services
+            await Neo4jService.initialize()
+            await QdrantService.initialize()
+            logger.info("Successfully connected to all backend services.")
+            break
+        except Exception as e:
+            retries -= 1
+            logger.warning(f"Backend services not ready. Retrying in 5s... ({retries} retries left). Error: {e}")
+            if retries == 0:
+                logger.error("Could not connect to backend services after multiple attempts.")
+                raise e
+            await asyncio.sleep(5)
 
 
 @app.on_event("shutdown")

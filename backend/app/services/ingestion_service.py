@@ -93,6 +93,13 @@ class IngestionService:
 
             logger.info(f"Ingestion completed for repository {repository_id}")
 
+            # Phase 2: Trigger a bootstrap scan to populate the graph immediately
+            from ..intelligence.pipeline import AnalysisPipeline
+            from ..core.config import settings
+            repo_path = f"{settings.REPOS_STORAGE_PATH}/{repo_data['full_name']}"
+            pipeline = AnalysisPipeline(repository_id, repo_path)
+            asyncio.create_task(pipeline.run())
+
         except Exception as e:
             logger.error(f"Ingestion failed for repository {repository_id}: {e}")
             async for session in db.get_db():
@@ -114,30 +121,34 @@ class IngestionService:
 
     @staticmethod
     async def _clone_repository(repo_data: dict) -> None:
-        """Clone repository to ephemeral workspace."""
-        with tempfile.TemporaryDirectory(prefix="aegis_") as tmpdir:
-            repo_path = Path(tmpdir) / repo_data["full_name"].replace("/", "_")
-            repo_path.mkdir(parents=True, exist_ok=True)
+        """Clone repository to persistent workspace."""
+        from ..core.config import settings
+        storage_path = Path(settings.REPOS_STORAGE_PATH)
+        repo_path = storage_path / repo_data["full_name"]
+        
+        # Ensure parent directory exists
+        repo_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        if repo_path.exists():
+            logger.info(f"Repository already cloned at {repo_path}")
+            return
+
+        url = repo_data["html_url"]
+        logger.info(f"Cloning repository to {repo_path}")
+        
+        # Phase 1: Clone with shallow depth and size limits
+        try:
+            result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "clone", "--depth", "1", url, str(repo_path)],
+                capture_output=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                raise ValueError(f"Git clone failed: {result.stderr.decode()}")
+            logger.info(f"Clone succeeded: {repo_path}")
             
-            url = repo_data["html_url"]
-            logger.info(f"Cloning repository to {repo_path}")
-            
-            # Phase 1: Clone with shallow depth and size limits
-            try:
-                result = await asyncio.to_thread(
-                    subprocess.run,
-                    ["git", "clone", "--depth", "1", url, str(repo_path)],
-                    capture_output=True,
-                    timeout=60,
-                )
-                if result.returncode != 0:
-                    raise ValueError(f"Git clone failed: {result.stderr.decode()}")
-                logger.info(f"Clone succeeded: {repo_path}")
-                
-                # Phase 1: Repository is ready for parsing (future)
-                # TODO: Trigger language-specific parsers (ts-morph, Python AST, etc.)
-                
-            except subprocess.TimeoutExpired:
-                raise ValueError("Repository clone timeout (60s)")
-            except Exception as e:
-                raise ValueError(f"Clone failed: {e}")
+        except subprocess.TimeoutExpired:
+            raise ValueError("Repository clone timeout (60s)")
+        except Exception as e:
+            raise ValueError(f"Clone failed: {e}")

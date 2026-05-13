@@ -20,7 +20,8 @@ class ParserEngine:
         self.languages = {
             "python": Language(tspython.language()),
             "javascript": Language(tsjavascript.language()),
-            "typescript": Language(tstypescript.language()),
+            "typescript": Language(tstypescript.language_typescript()),
+            "tsx": Language(tstypescript.language_tsx()),
             "go": Language(tsgo.language()),
         }
         self.parser = Parser()
@@ -31,7 +32,7 @@ class ParserEngine:
             ".js": "javascript",
             ".jsx": "javascript",
             ".ts": "typescript",
-            ".tsx": "typescript",
+            ".tsx": "tsx",
             ".go": "go",
         }
         return mapping.get(file_extension)

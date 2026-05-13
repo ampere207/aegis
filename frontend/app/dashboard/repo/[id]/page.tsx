@@ -26,7 +26,7 @@ export default function RepoDetailPage() {
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        const res = await fetch(`/api/v1/repos/${repoId}`, { credentials: 'include' })
+        const res = await fetch(`/api/repos/${repoId}`, { credentials: 'include' })
         if (res.ok) {
           setRepoDetails(await res.json())
         }
@@ -56,7 +56,7 @@ export default function RepoDetailPage() {
     setAnalyzing(true)
     setAnalysisProgress({ stage: 'started', message: 'Requesting analysis...' })
     try {
-      await fetch(`/api/v1/repos/${repoId}/analyze`, { method: 'POST', credentials: 'include' })
+      await fetch(`/api/repos/${repoId}/analyze`, { method: 'POST', credentials: 'include' })
     } catch (e) {
       console.error(e)
       setAnalyzing(false)

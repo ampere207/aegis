@@ -26,23 +26,38 @@ export default function PRAnalysisWorkspace({ repoId, prNumber }: PRAnalysisWork
 
   const startAnalysis = async () => {
     setAnalyzing(true);
+    setFindings([]);
+    setImpactedFiles([]);
+    
     try {
-      const res = await fetch(`/api/v1/repos/${repoId}/pr/${prNumber}/analyze`, { method: 'POST' });
+      const res = await fetch(`/api/repos/${repoId}/pr/${prNumber}/analyze`, { 
+        method: 'POST',
+        credentials: 'include' 
+      });
+      
       if (res.ok) {
-        // In a real app, we'd listen to the WebSocket here
-        // For demonstration, we'll simulate the findings
-        setTimeout(() => {
-          setFindings([
-            {
-              title: 'Architectural Trust Boundary Modification',
-              description: 'This PR modifies core auth middleware. Direct privilege propagation detected into internal services.',
-              severity: 'high',
-              type: 'trust_boundary'
-            }
-          ]);
-          setImpactedFiles(['app/middleware/auth.py', 'app/services/internal.py']);
+        // Listen for real-time updates via WebSocket
+        const ws = new WebSocket(`ws://localhost:8000/api/ws/analysis/${repoId}`);
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.stage === 'completed') {
+            setFindings(data.findings || []);
+            setImpactedFiles(data.impacted_files || []);
+            setAnalyzing(false);
+            ws.close();
+          } else if (data.stage === 'failed') {
+            setAnalyzing(false);
+            ws.close();
+          }
+        };
+
+        ws.onerror = () => {
           setAnalyzing(false);
-        }, 3000);
+          ws.close();
+        };
+      } else {
+        setAnalyzing(false);
       }
     } catch (error) {
       console.error('Failed to trigger PR analysis', error);

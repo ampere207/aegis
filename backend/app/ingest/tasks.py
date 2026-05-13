@@ -35,8 +35,4 @@ async def run_ingest(repo_full_name: str, repo_url: str) -> dict:
 
 def schedule_ingest(background: BackgroundTasks, repo_full_name: str, repo_url: str):
     """Schedule ingestion in FastAPI BackgroundTasks."""
-
-    async def _task():
-        await run_ingest(repo_full_name, repo_url)
-
-    background.add_task(asyncio.create_task, _task())
+    background.add_task(run_ingest, repo_full_name, repo_url)

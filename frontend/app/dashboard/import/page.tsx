@@ -1,34 +1,39 @@
 "use client"
-import React, { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { GithubIcon, Search, Loader2, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-type Repo = {
+interface GitHubRepo {
   id: number
   owner: string
   name: string
   full_name: string
   html_url: string
-  clone_url?: string
-  description?: string
-  visibility?: string
+  description: string
+  visibility: string
 }
 
 export default function ImportPage() {
-  const [availableRepos, setAvailableRepos] = useState<Repo[]>([])
-  const [importedRepos, setImportedRepos] = useState<Repo[]>([])
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [repos, setRepos] = useState<GitHubRepo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [importing, setImporting] = useState<number | null>(null)
+  const router = useRouter()
 
-  const fetchAvailable = async () => {
+  const fetchRepos = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/repos/available?q=${searchTerm}`, { credentials: 'include' })
+      const res = await fetch(`/api/repos/available`, { credentials: 'include' })
       if (res.ok) {
-        setAvailableRepos(await res.json())
+        const data = await res.json()
+        setRepos(data)
+      } else if (res.status === 401) {
+        // Not logged in, redirect to landing
+        router.push('/')
       }
     } catch (e) {
       console.error(e)
@@ -37,116 +42,97 @@ export default function ImportPage() {
     }
   }
 
-  const fetchImported = async () => {
+  const handleImport = async (repo: GitHubRepo) => {
+    setImporting(repo.id)
     try {
-      const res = await fetch(`/api/repos/imported`, { credentials: 'include' })
+      const res = await fetch(`/api/repos/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(repo),
+        credentials: 'include'
+      })
       if (res.ok) {
-        setImportedRepos(await res.json())
+        router.push('/dashboard')
       }
     } catch (e) {
       console.error(e)
+    } finally {
+      setImporting(null)
     }
   }
 
   useEffect(() => {
-    fetchAvailable()
-    fetchImported()
-  }, [searchTerm])
+    fetchRepos()
+  }, [])
 
-  const handleImport = async (repo: Repo) => {
-    try {
-      const res = await fetch('/api/repos/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(repo),
-        credentials: 'include',
-      })
-      if (res.ok) {
-        // Refresh imported list
-        fetchImported()
-      }
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const isImported = (fullName: string) => importedRepos.some(r => r.full_name === fullName)
+  const filteredRepos = repos.filter(r => 
+    r.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
+  )
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Import Repositories</h1>
-          <p className="text-muted-foreground">Select repositories to import from your GitHub account.</p>
-        </div>
-
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search repositories..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Repositories</CardTitle>
-              <CardDescription>Repositories you have access to on GitHub.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : availableRepos.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No repositories found.</div>
-              ) : (
-                availableRepos.map((repo) => (
-                  <div key={repo.id} className="flex justify-between items-center p-3 border rounded-md">
-                    <div>
-                      <a href={repo.html_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">
-                        {repo.full_name}
-                      </a>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{repo.description || 'No description'}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={isImported(repo.full_name) ? "secondary" : "default"}
-                      onClick={() => handleImport(repo)}
-                      disabled={isImported(repo.full_name)}
-                    >
-                      {isImported(repo.full_name) ? 'Imported' : 'Import'}
-                    </Button>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Currently Tracking</CardTitle>
-              <CardDescription>Repositories already imported into Aegis.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {importedRepos.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No repositories imported yet.</div>
-              ) : (
-                importedRepos.map((repo) => (
-                  <div key={repo.id} className="p-3 border rounded-md bg-muted/40">
-                    <a href={repo.html_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">
-                      {repo.full_name}
-                    </a>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{repo.description || 'No description'}</p>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+    <main className="min-h-screen p-8 max-w-5xl mx-auto space-y-8">
+      <div className="flex items-center space-x-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/dashboard">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </Button>
+        <h2 className="text-3xl font-bold tracking-tight">Import Repositories</h2>
       </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search repositories..."
+          className="pl-10 h-12"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          suppressHydrationWarning
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">Fetching your GitHub repositories...</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredRepos.length === 0 ? (
+            <div className="text-center py-20 border-2 border-dashed rounded-lg">
+              <p className="text-muted-foreground">No repositories found.</p>
+            </div>
+          ) : (
+            filteredRepos.map((repo) => (
+              <Card key={repo.id} className="hover:bg-accent/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg font-bold flex items-center">
+                      <GithubIcon className="mr-2 h-4 w-4" />
+                      {repo.full_name}
+                    </CardTitle>
+                    <CardDescription>{repo.description || 'No description provided.'}</CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => handleImport(repo)} 
+                    disabled={importing === repo.id}
+                  >
+                    {importing === repo.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      'Import'
+                    )}
+                  </Button>
+                </CardHeader>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </main>
   )
 }
