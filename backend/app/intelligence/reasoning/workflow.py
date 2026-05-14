@@ -16,7 +16,8 @@ class ReasoningWorkflow:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=settings.GEMINI_API_KEY,
-            temperature=0.1
+            temperature=0.1,
+            convert_system_message_to_human=True
         )
 
     def _get_system_prompt(self) -> str:

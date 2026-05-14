@@ -24,6 +24,8 @@ class AnalysisPipeline:
         self.extractors = {
             "python": PythonExtractor(self.parser_engine),
             "typescript": TypeScriptExtractor(self.parser_engine),
+            "tsx": TypeScriptExtractor(self.parser_engine),
+            "javascript": TypeScriptExtractor(self.parser_engine),
         }
         self.graph_builder = GraphBuilder(repo_id)
         self.reasoning_workflow = ReasoningWorkflow()
@@ -55,8 +57,14 @@ class AnalysisPipeline:
                     continue
                 
                 # Parse
-                tree = self.parser_engine.parse_file(file_path)
-                if not tree:
+                logger.info(f"Parsing file: {rel_path} (lang: {lang})")
+                try:
+                    tree = self.parser_engine.parse_file(file_path)
+                    if not tree:
+                        logger.warning(f"Failed to parse {rel_path}: Parser returned no tree.")
+                        continue
+                except Exception as e:
+                    logger.error(f"Parser crash on {rel_path}: {e}")
                     continue
                 
                 # Extract

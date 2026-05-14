@@ -9,6 +9,12 @@ class PythonExtractor(BaseExtractor):
         entities.extend(self._extract_service_calls(file_path, tree))
         entities.extend(self._extract_classes(file_path, tree))
         entities.extend(self._extract_functions(file_path, tree))
+        entities.extend(self._extract_security_imports(file_path, tree))
+        
+        # Universal Fallback: Scan for significant logic blocks if repo is "raw" scripts
+        if len(entities) < 5:
+            self._extract_generic_blocks(file_path, tree.root_node, entities)
+            
         return entities
 
     def _extract_routes(self, file_path: str, tree: any) -> List[SemanticEntity]:
@@ -100,5 +106,31 @@ class PythonExtractor(BaseExtractor):
                     line_start=node.start_point[0] + 1,
                     line_end=node.end_point[0] + 1,
                     metadata={"language": "python"}
+                ))
+        return entities
+
+    def _extract_security_imports(self, file_path: str, tree: any) -> List[SemanticEntity]:
+        # Query for crypto/security related imports
+        query_str = """
+        (import_from_statement
+            module: (dotted_name) @mod
+            (#match? @mod "^(cryptography|hashlib|hmac|ssl|secrets|Crypto|pycryptodome)$")
+        ) @import
+        (import_statement
+            name: (dotted_name) @mod
+            (#match? @mod "^(cryptography|hashlib|hmac|ssl|secrets|Crypto|pycryptodome)$")
+        ) @import
+        """
+        captures = self.engine.query(tree, query_str, "python")
+        entities = []
+        for node, tag in captures:
+            if tag == "import":
+                entities.append(SemanticEntity(
+                    name=f"security_import_{node.start_point[0]}",
+                    type="security_control",
+                    file_path=file_path,
+                    line_start=node.start_point[0] + 1,
+                    line_end=node.end_point[0] + 1,
+                    metadata={"language": "python", "category": "cryptography"}
                 ))
         return entities

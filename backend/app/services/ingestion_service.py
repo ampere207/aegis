@@ -142,13 +142,13 @@ class IngestionService:
                 subprocess.run,
                 ["git", "clone", "--depth", "1", url, str(repo_path)],
                 capture_output=True,
-                timeout=60,
+                timeout=300,
             )
             if result.returncode != 0:
                 raise ValueError(f"Git clone failed: {result.stderr.decode()}")
             logger.info(f"Clone succeeded: {repo_path}")
             
         except subprocess.TimeoutExpired:
-            raise ValueError("Repository clone timeout (60s)")
+            raise ValueError("Repository clone timeout (300s)")
         except Exception as e:
             raise ValueError(f"Clone failed: {e}")

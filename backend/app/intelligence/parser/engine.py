@@ -47,7 +47,7 @@ class ParserEngine:
         if not lang:
             return None
 
-        self.parser.set_language(lang)
+        self.parser.language = lang
         
         try:
             with open(file_path, "rb") as f:

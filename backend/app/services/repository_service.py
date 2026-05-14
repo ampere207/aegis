@@ -6,6 +6,16 @@ class RepositoryService:
     @staticmethod
     async def create_repository(repo_data: dict) -> Repository:
         async for session in db.get_db():
+            from sqlalchemy import select
+            stmt = select(Repository).where(
+                Repository.full_name == repo_data["full_name"],
+                Repository.user_id == repo_data.get("user_id")
+            )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing:
+                return existing
+
             repo = Repository(
                 owner=repo_data["owner"],
                 name=repo_data["name"],

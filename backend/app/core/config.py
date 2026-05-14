@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str | None = None
     FRONTEND_ORIGIN: AnyHttpUrl = "http://localhost:3000"
     BACKEND_ORIGIN: str = "http://localhost:8000"
-    REPOS_STORAGE_PATH: str = "/app/storage/repos"
+    REPOS_STORAGE_PATH: str = "/repos_storage"
 
     class Config:
         env_file = ".env"

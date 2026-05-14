@@ -4,13 +4,22 @@ from ..engine import SemanticEntity
 
 class TypeScriptExtractor(BaseExtractor):
     def extract(self, file_path: str, tree: any) -> List[SemanticEntity]:
+        import os
+        _, ext = os.path.splitext(file_path)
+        lang = "tsx" if ext == ".tsx" else "javascript" if ext in [".js", ".jsx"] else "typescript"
+        
         entities = []
-        entities.extend(self._extract_express_routes(file_path, tree))
-        entities.extend(self._extract_classes(file_path, tree))
-        entities.extend(self._extract_functions(file_path, tree))
+        entities.extend(self._extract_express_routes(file_path, tree, lang))
+        entities.extend(self._extract_classes(file_path, tree, lang))
+        entities.extend(self._extract_functions(file_path, tree, lang))
+        
+        # Universal Fallback: Scan for significant logic blocks
+        if len(entities) < 5:
+            self._extract_generic_blocks(file_path, tree.root_node, entities)
+            
         return entities
 
-    def _extract_express_routes(self, file_path: str, tree: any) -> List[SemanticEntity]:
+    def _extract_express_routes(self, file_path: str, tree: any, lang: str) -> List[SemanticEntity]:
         # Query for express style routes: app.get('/path', ...)
         query_str = """
         (call_expression
@@ -24,7 +33,7 @@ class TypeScriptExtractor(BaseExtractor):
             )
         ) @route
         """
-        captures = self.engine.query(tree, query_str, "typescript")
+        captures = self.engine.query(tree, query_str, lang)
         
         entities = []
         for node, tag in captures:
@@ -39,9 +48,9 @@ class TypeScriptExtractor(BaseExtractor):
                 ))
         return entities
 
-    def _extract_classes(self, file_path: str, tree: any) -> List[SemanticEntity]:
+    def _extract_classes(self, file_path: str, tree: any, lang: str) -> List[SemanticEntity]:
         query_str = "(class_declaration name: (identifier) @name) @class"
-        captures = self.engine.query(tree, query_str, "typescript")
+        captures = self.engine.query(tree, query_str, lang)
         entities = []
         for node, tag in captures:
             if tag == "class":
@@ -56,9 +65,9 @@ class TypeScriptExtractor(BaseExtractor):
                 ))
         return entities
 
-    def _extract_functions(self, file_path: str, tree: any) -> List[SemanticEntity]:
+    def _extract_functions(self, file_path: str, tree: any, lang: str) -> List[SemanticEntity]:
         query_str = "(function_declaration name: (identifier) @name) @func"
-        captures = self.engine.query(tree, query_str, "typescript")
+        captures = self.engine.query(tree, query_str, lang)
         entities = []
         for node, tag in captures:
             if tag == "func":

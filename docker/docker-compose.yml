@@ -40,7 +40,8 @@ services:
     ports:
       - '8000:8000'
     volumes:
-      - repos_data:/app/storage/repos
+      - ../backend:/app
+      - repos_data:/repos_storage
 
   frontend:
     build:
@@ -48,6 +49,9 @@ services:
     env_file: .env
     ports:
       - '3000:3000'
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
 
 volumes:
   pgdata:
